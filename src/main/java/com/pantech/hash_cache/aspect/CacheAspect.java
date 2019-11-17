@@ -71,7 +71,7 @@ public class CacheAspect {
     @AfterReturning(pointcut = "cacheEvictForHash()")
     public void handleCacheEvictForHash(JoinPoint joinPoint) {
         //构建表达式计算上下文
-        StandardEvaluationContext evaluationContext = getStandardEvaluationContext(joinPoint);
+        StandardEvaluationContext evaluationContext = getStandardEvaluationContext(joinPoint, null);
         //获取method 对象
         Method method = getMethod(joinPoint);
         //获取注解
@@ -102,7 +102,7 @@ public class CacheAspect {
     @AfterReturning(pointcut = "cachePutForHash()", returning = "returnValue")
     public void handleCachePutForHash(JoinPoint joinPoint, Object returnValue) {
         //构建表达式计算上下文
-        StandardEvaluationContext evaluationContext = getStandardEvaluationContext(joinPoint);
+        StandardEvaluationContext evaluationContext = getStandardEvaluationContext(joinPoint, returnValue);
         //获取method 对象
         Method method = getMethod(joinPoint);
         //获取注解
@@ -135,7 +135,7 @@ public class CacheAspect {
     public Object handleCacheForHash(ProceedingJoinPoint joinPoint) throws Throwable {
 
         //构建表达式计算上下文
-        StandardEvaluationContext evaluationContext = getStandardEvaluationContext(joinPoint);
+        StandardEvaluationContext evaluationContext = getStandardEvaluationContext(joinPoint, null);
         //获取method 对象
         Method method = getMethod(joinPoint);
         //获取注解
@@ -187,6 +187,9 @@ public class CacheAspect {
 
     private String getRedisKey(Class targetClass) {
         CacheEntity cacheEntity = (CacheEntity) targetClass.getAnnotation(CacheEntity.class);
+        if (cacheEntity == null) {
+            throw new RuntimeException("实体没有CacheEntity注解!");
+        }
         return cacheEntity.key();
     }
 
@@ -298,11 +301,11 @@ public class CacheAspect {
      * @param joinPoint 切点
      * @return 构建表达式上下文
      */
-    private StandardEvaluationContext getStandardEvaluationContext(JoinPoint joinPoint) {
+    private StandardEvaluationContext getStandardEvaluationContext(JoinPoint joinPoint, Object returnValue) {
         //构建表达式计算上下文
         StandardEvaluationContext evaluationContext = new StandardEvaluationContext(joinPoint.getArgs());
         //将方法参数名和参数值放到系统上下文当中
-        setContextVariables(evaluationContext, joinPoint);
+        setContextVariables(evaluationContext, joinPoint, returnValue);
         return evaluationContext;
     }
 
@@ -312,7 +315,7 @@ public class CacheAspect {
      *
      * @param joinPoint 切点
      */
-    private void setContextVariables(StandardEvaluationContext standardEvaluationContext, JoinPoint joinPoint) {
+    private void setContextVariables(StandardEvaluationContext standardEvaluationContext, JoinPoint joinPoint, Object result) {
         MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
         //获取方法参数名
         String[] paramNames = parameterNameDiscoverer.getParameterNames(methodSignature.getMethod());
@@ -326,5 +329,6 @@ public class CacheAspect {
         for (int i = 0; i < args.length; i++) {
             standardEvaluationContext.setVariable(paramNames[i], args[i]);
         }
+        standardEvaluationContext.setVariable("result", result);
     }
 }
